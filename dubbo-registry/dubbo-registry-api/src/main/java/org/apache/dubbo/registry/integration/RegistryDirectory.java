@@ -184,6 +184,8 @@ public class RegistryDirectory<T> extends AbstractDirectory<T> implements Notify
 
         /**
          * TODO Try to refactor the processing of these three type of urls using Collectors.groupBy()?
+         *
+         * 这里是分别把配置中心的目录、服务路由的目录、以及服务提供者的目录拿出来
          */
         this.configurators = Configurator.toConfigurators(classifyUrls(categoryUrls, UrlUtils::isConfigurator))
                 .orElse(configurators);
@@ -251,7 +253,11 @@ public class RegistryDirectory<T> extends AbstractDirectory<T> implements Notify
             List<Invoker<T>> newInvokers = Collections.unmodifiableList(new ArrayList<>(newUrlInvokerMap.values()));
             // pre-route and build cache, notice that route cache should build on original Invoker list.
             // toMergeMethodInvokerMap() will wrap some invokers having different groups, those wrapped invokers not should be routed.
+            /**
+             * 这里是把路由服务配置的信息，转换成路由规则，添加到路由链中
+             */
             routerChain.setInvokers(newInvokers);
+            //这里的invoke就是所有的服务提供者
             this.invokers = multiGroup ? toMergeInvokerList(newInvokers) : newInvokers;
             this.urlInvokerMap = newUrlInvokerMap;
 
@@ -375,6 +381,10 @@ public class RegistryDirectory<T> extends AbstractDirectory<T> implements Notify
                         enabled = url.getParameter(Constants.ENABLED_KEY, true);
                     }
                     if (enabled) {
+                        /**
+                         * 这里会调用服务提供者对应的protocol，生成Invoker对象，在这里生成Invoker对象之后，会统一放到一个map中
+                         * newUrlInvokerMap；并返回
+                         */
                         invoker = new InvokerDelegate<T>(protocol.refer(serviceType, url), url, providerUrl);
                     }
                 } catch (Throwable t) {

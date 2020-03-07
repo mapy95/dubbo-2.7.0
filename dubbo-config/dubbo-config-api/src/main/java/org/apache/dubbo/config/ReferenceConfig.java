@@ -304,6 +304,12 @@ public class ReferenceConfig<T> extends AbstractReferenceConfig {
         ApplicationModel.initConsumerModel(getUniqueServiceName(), consumerModel);
     }
 
+    /**
+     * 创建实现类的代理对象：
+     *
+     * @param map
+     * @return
+     */
     @SuppressWarnings({"unchecked", "rawtypes", "deprecation"})
     private T createProxy(Map<String, String> map) {
         URL tmpUrl = new URL("temp", "localhost", 0, map);
@@ -319,6 +325,7 @@ public class ReferenceConfig<T> extends AbstractReferenceConfig {
             isJvmRefer = isInjvm();
         }
 
+        //injvm表示暴露在本地
         if (isJvmRefer) {
             URL url = new URL(Constants.LOCAL_PROTOCOL, NetUtils.LOCALHOST, 0, interfaceClass.getName()).addParameters(map);
             invoker = refprotocol.refer(interfaceClass, url);
@@ -326,6 +333,7 @@ public class ReferenceConfig<T> extends AbstractReferenceConfig {
                 logger.info("Using injvm service " + interfaceClass.getName());
             }
         } else {
+            //这里的URL表示的是直连模式时，指定的URL地址
             if (url != null && url.length() > 0) { // user specified URL, could be peer-to-peer address, or register center's address.
                 String[] us = Constants.SEMICOLON_SPLIT_PATTERN.split(url);
                 if (us != null && us.length > 0) {
@@ -342,6 +350,7 @@ public class ReferenceConfig<T> extends AbstractReferenceConfig {
                     }
                 }
             } else { // assemble URL from register center's configuration
+                //如果不是直连模式，会走这里的逻辑
                 checkRegistry();
                 List<URL> us = loadRegistries(false);
                 if (us != null && !us.isEmpty()) {
@@ -358,6 +367,7 @@ public class ReferenceConfig<T> extends AbstractReferenceConfig {
                 }
             }
 
+            //如果只有一个注册中心
             if (urls.size() == 1) {
                 invoker = refprotocol.refer(interfaceClass, urls.get(0));
             } else {
@@ -387,6 +397,7 @@ public class ReferenceConfig<T> extends AbstractReferenceConfig {
         if (c == null) {
             c = true; // default true
         }
+        //这里是dubbo服务引入的检查机制，如果在dubbo:reference的时候指定了check为true，那么在这里，会检查服务提供者的Invoker是否可用
         if (c && !invoker.isAvailable()) {
             // make it possible for consumer to retry later if provider is temporarily unavailable
             initialized = false;

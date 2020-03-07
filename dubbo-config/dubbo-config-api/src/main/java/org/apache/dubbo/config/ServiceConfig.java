@@ -265,6 +265,10 @@ public class ServiceConfig<T> extends AbstractServiceConfig {
         completeCompoundConfigs();
         // Config Center should always being started first.
         startConfigCenter();
+        /**
+         * 1.1 这里的checkDefault方法中，会把配置文件按照优先级，添加到一个linkedList中
+         *
+         */
         checkDefault();
         checkApplication();
         checkRegistry();
@@ -326,7 +330,7 @@ public class ServiceConfig<T> extends AbstractServiceConfig {
     }
 
     public synchronized void export() {
-        //检查默认配置信息
+        //1.检查默认配置信息
         checkAndUpdateSubConfigs();
 
         if (provider != null) {
@@ -345,6 +349,7 @@ public class ServiceConfig<T> extends AbstractServiceConfig {
         if (delay != null && delay > 0) {
             delayExportExecutor.schedule(this::doExport, delay, TimeUnit.MILLISECONDS);
         } else {
+            //2.服务导出
             doExport();
         }
     }
@@ -415,6 +420,7 @@ public class ServiceConfig<T> extends AbstractServiceConfig {
 
     private void doExportUrlsFor1Protocol(ProtocolConfig protocolConfig, List<URL> registryURLs) {
         String name = protocolConfig.getName();
+        //如果协议中未指定协议，默认使用dubbo
         if (name == null || name.length() == 0) {
             name = Constants.DUBBO;
         }
@@ -422,7 +428,7 @@ public class ServiceConfig<T> extends AbstractServiceConfig {
         Map<String, String> map = new HashMap<String, String>();
         map.put(Constants.SIDE_KEY, Constants.PROVIDER_SIDE);
         appendRuntimeParameters(map);
-        //这里完成了属性的覆盖(子节点的属性覆盖父节点的属性)
+        //这里完成了属性的覆盖(子节点的属性覆盖父节点的属性);后添加的，覆盖先添加的
         appendParameters(map, application);
         appendParameters(map, module);
         appendParameters(map, provider, Constants.DEFAULT_KEY);
@@ -521,6 +527,9 @@ public class ServiceConfig<T> extends AbstractServiceConfig {
 
         String host = this.findConfigedHosts(protocolConfig, registryURLs, map);
         Integer port = this.findConfigedPorts(protocolConfig, name, map);
+        /**
+         * 这里最终拼装好的url，就是要往注册中心注册的URL地址，dubbo://192.168.18.173:20880/com.luban.api.HelloService?anyhost=true&application=provider&bean.name=com.luban.api.HelloService&bind.ip=192.168.18.173&bind.port=20880&dubbo=2.0.2&generic=false&interface=com.luban.api.HelloService&methods=sayHello&pid=9478&release=2.7.0&side=provider&timestamp=1583235164629
+         */
         URL url = new URL(name, host, port, (contextPath == null || contextPath.length() == 0 ? "" : contextPath + "/") + path, map);
 
         if (ExtensionLoader.getExtensionLoader(ConfiguratorFactory.class)
@@ -589,6 +598,7 @@ public class ServiceConfig<T> extends AbstractServiceConfig {
     }
 
     @SuppressWarnings({"unchecked", "rawtypes"})
+    //在导出到本地的时候，会把URL中协议，转换成injvm
     private void exportLocal(URL url) {
         if (!Constants.LOCAL_PROTOCOL.equalsIgnoreCase(url.getProtocol())) {
             URL local = URL.valueOf(url.toFullString())

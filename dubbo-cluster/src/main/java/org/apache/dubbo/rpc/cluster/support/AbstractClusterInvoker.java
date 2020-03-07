@@ -235,9 +235,12 @@ public abstract class AbstractClusterInvoker<T> implements Invoker<T> {
             ((RpcInvocation) invocation).addAttachments(contextAttachments);
         }
 
+        //这里的list方法是经过路由链过滤之后的Invokers,这里会调用RegistryDirectory的doList方法，会调用消费者注入的时候，生成的路由链
         List<Invoker<T>> invokers = list(invocation);
+        //初始化负载均衡策略，这里不是执行负载均衡，只是进行了初始化，确定当前配置的是哪个负载均衡策略
         LoadBalance loadbalance = initLoadBalance(invokers, invocation);
         RpcUtils.attachInvocationIdIfAsync(getUrl(), invocation);
+        //这里的doInvoker方法，会调到对应的负载均衡策略实现类中
         return doInvoke(invocation, invokers, loadbalance);
     }
 

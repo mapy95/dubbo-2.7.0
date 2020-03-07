@@ -65,13 +65,23 @@ public class MockClusterInvoker<T> implements Invoker<T> {
         return directory.getInterface();
     }
 
+    /**
+     * 在dubbo服务调用的时候，返回的对象，其实就是mockClusterInvoker的代理对象，会执行到这个方法中
+     * 首先会判断是否配置了mock；如果皮遏制了mock,就会走mock的逻辑；mock机制其实就是在服务调用失败的时候，会调用mock对应的类
+     * mock就是类似于服务降级
+     * force：无论是否成功，都会强制返回force的逻辑
+     * @param invocation
+     * @return
+     * @throws RpcException
+     */
     @Override
     public Result invoke(Invocation invocation) throws RpcException {
         Result result = null;
 
+        //这里是判断配置项中是否配置了mock属性
         String value = directory.getUrl().getMethodParameter(invocation.getMethodName(), Constants.MOCK_KEY, Boolean.FALSE.toString()).trim();
         if (value.length() == 0 || value.equalsIgnoreCase("false")) {
-            //no mock
+            //no mock  org.apache.dubbo.rpc.cluster.support.AbstractClusterInvoker.invoke
             result = this.invoker.invoke(invocation);
         } else if (value.startsWith("force")) {
             if (logger.isWarnEnabled()) {
@@ -97,6 +107,7 @@ public class MockClusterInvoker<T> implements Invoker<T> {
         return result;
     }
 
+    //这里是mock机制自己的处理逻辑
     @SuppressWarnings({"unchecked", "rawtypes"})
     private Result doMockInvoke(Invocation invocation, RpcException e) {
         Result result = null;

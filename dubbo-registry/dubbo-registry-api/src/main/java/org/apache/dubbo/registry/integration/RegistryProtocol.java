@@ -153,6 +153,7 @@ public class RegistryProtocol implements Protocol {
     }
 
     public void register(URL registryUrl, URL registeredProviderUrl) {
+        //根据registryUrl判断是要注册到哪里，如果使用的是zookeeper，那registryUrl是：zookeeper://ip:port
         Registry registry = registryFactory.getRegistry(registryUrl);
         registry.register(registeredProviderUrl);
     }
@@ -162,6 +163,14 @@ public class RegistryProtocol implements Protocol {
         registry.unregister(registeredProviderUrl);
     }
 
+    /**
+     * 执行到该方法之前，会先执行protocol的包装类型 protocolFilterWrapper/protocolListenerWrapper
+     * 在服务导出的时候，会监听配置中心的配置信息
+     * @param originInvoker
+     * @param <T>
+     * @return
+     * @throws RpcException
+     */
     @Override
     public <T> Exporter<T> export(final Invoker<T> originInvoker) throws RpcException {
         URL registryUrl = getRegistryUrl(originInvoker);
@@ -177,7 +186,7 @@ public class RegistryProtocol implements Protocol {
         overrideListeners.put(overrideSubscribeUrl, overrideSubscribeListener);
 
         providerUrl = overrideUrlWithConfig(providerUrl, overrideSubscribeListener);
-        //export invoker
+        //export invoker, 在该方法中，会调用dubboProtocol的export方法，来开启netty服务
         final ExporterChangeableWrapper<T> exporter = doLocalExport(originInvoker, providerUrl);
 
         // url to registry
@@ -188,7 +197,7 @@ public class RegistryProtocol implements Protocol {
         //to judge if we need to delay publish
         boolean register = registeredProviderUrl.getParameter("register", true);
         if (register) {
-            //这里其实就是服务注册
+            //这里其实就是服务注册，最后注册到zookeeper中的地址是 协议://ip:port
             register(registryUrl, registeredProviderUrl);
             providerInvokerWrapper.setReg(true);
         }
@@ -343,12 +352,19 @@ public class RegistryProtocol implements Protocol {
     @Override
     @SuppressWarnings("unchecked")
     public <T> Invoker<T> refer(Class<T> type, URL url) throws RpcException {
+        /**
+         * registry://127.0.0.1:2181/org.apache.dubbo.registry.RegistryService?application=provider&dubbo=2.0.2&pid=1092&refer=application=provider&dubbo=2.0.2&interface=com.luban.api.HelloService&loadbalance=roundrobin&methods=sayHello&pid=1092&register.ip=192.168.18.173&release=2.7.0&side=consumer&timestamp=1583453755258&registry=zookeeper&release=2.7.0&timestamp=1583453757025
+         *
+         * 这里获取到的URL是这个样子的，下面这一行代码的意思是：把url中registry对应的参数最为URL的protocol；
+         * 所以经过这一行之后，会变成 zookeeper://ip:port...
+         */
         url = url.setProtocol(url.getParameter(REGISTRY_KEY, DEFAULT_REGISTRY)).removeParameter(REGISTRY_KEY);
         Registry registry = registryFactory.getRegistry(url);
         if (RegistryService.class.equals(type)) {
             return proxyFactory.getInvoker((T) registry, type, url);
         }
 
+        //前面在组装URL的时候，把map的参数都存到了refer中，在这里把参数都取出来；这里是对分组的处理 group
         // group="a,b" or group="*"
         Map<String, String> qs = StringUtils.parseQueryString(url.getParameterAndDecoded(REFER_KEY));
         String group = qs.get(Constants.GROUP_KEY);
@@ -364,20 +380,56 @@ public class RegistryProtocol implements Protocol {
         return ExtensionLoader.getExtensionLoader(Cluster.class).getExtension("mergeable");
     }
 
+    /**
+     * 这个方法在服务消费者这里十分重要，完成了一下几件事情：
+     *  1.将服务消费者注册到注册中心
+     *  2.构建路由链
+     *  3.订阅zk注册中心的目录
+     *  4.在订阅的时候，会对服务提供者进行路由链的过滤
+     *  5.把所有的服务提供者返回的Invoker对象进行合并，最后返回一个代理对象Invoker
+     * @param cluster
+     * @param registry
+     * @param type
+     * @param url
+     * @param <T>
+     * @return
+     */
     private <T> Invoker<T> doRefer(Cluster cluster, Registry registry, Class<T> type, URL url) {
+        //服务目录，可以简单理解为本地缓存，当zk注册中心宕机之后，服务消费者依然可以从本地缓存获取服务提供者地址，然后进行远程调用
         RegistryDirectory<T> directory = new RegistryDirectory<T>(type, url);
         directory.setRegistry(registry);
         directory.setProtocol(protocol);
         // all attributes of REFER_KEY
         Map<String, String> parameters = new HashMap<String, String>(directory.getUrl().getParameters());
+        /**
+         * 这里是把url组装成消费者要往zk注册的URL地址信息，转换之后的是这个样子的
+         * consumer://192.168.18.173/com.luban.api.HelloService?application=provider&dubbo=2.0.2&interface=com.luban.api.HelloService&loadbalance=roundrobin&methods=sayHello&pid=1092&release=2.7.0&side=consumer&timestamp=1583453755258
+         */
         URL subscribeUrl = new URL(CONSUMER_PROTOCOL, parameters.remove(REGISTER_IP_KEY), 0, type.getName(), parameters);
         if (!ANY_VALUE.equals(url.getServiceInterface()) && url.getParameter(REGISTER_KEY, true)) {
+            //这里是把消费者注册到zookeeper注册中心
             registry.register(getRegisteredConsumerUrl(subscribeUrl, url));
         }
+        /**
+         * 初始化构造路由链，这里是服务路由、条件路由；这里的路由主要是为了在调用之前，先进行一次过滤
+         * 0 = {MockRouterFactory@3172}
+         * 1 = {TagRouterFactory@3173}   100
+         * 2 = {AppRouterFactory@3174}   150
+         * 3 = {ServiceRouterFactory@3175} 140
+         *
+         * 这里只是初始化路由链，并将路由链设置到服务目录中，在这里，没有进行路由链的过滤
+         */
         directory.buildRouterChain(subscribeUrl);
+        /**
+         * 订阅注册到zk中的地址
+         */
         directory.subscribe(subscribeUrl.addParameter(CATEGORY_KEY,
                 PROVIDERS_CATEGORY + "," + CONFIGURATORS_CATEGORY + "," + ROUTERS_CATEGORY));
 
+        /**
+         * 这里的cluster使用的是SPI机制，默认的是FailoverCluster;这里的directory是经过服务路由之后，过滤出来的可以用的服务提供者
+         * 但是需要注意的是cluster的包装类 MockClusterInvoker
+         */
         Invoker invoker = cluster.join(directory);
         ProviderConsumerRegTable.registerConsumer(invoker, url, subscribeUrl, directory);
         return invoker;
@@ -485,6 +537,10 @@ public class RegistryProtocol implements Protocol {
         /**
          * @param urls The list of registered information, is always not empty, The meaning is the same as the
          *             return value of {@link org.apache.dubbo.registry.RegistryService#lookup(URL)}.
+         */
+        /**
+         * 当服务提供者发生变化时，会进入到这里
+         * @param urls The list of registered information , is always not empty. The meaning is the same as the return value of {@link org.apache.dubbo.registry.RegistryService#lookup(URL)}.
          */
         @Override
         public synchronized void notify(List<URL> urls) {

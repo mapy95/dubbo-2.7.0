@@ -103,7 +103,10 @@ public class ServiceBean<T> extends ServiceConfig<T> implements InitializingBean
         return service;
     }
 
-    //服务导出的入口
+    /**
+     * 服务导出的入口,在spring的refresh方法中，最后有一个finishRefresh()方法，在这个方法中，会发布事件消息，然后会调用到这里
+     * @param event
+     */
     @Override
     public void onApplicationEvent(ContextRefreshedEvent event) {
         if (!isExported() && !isUnexported()) {
@@ -116,7 +119,7 @@ public class ServiceBean<T> extends ServiceConfig<T> implements InitializingBean
 
     /**
      * @throws Exception
-     * 这里的afterPropertiesSet是在spring的refresh方法中完成bean的实例化的时候，调用的；接口名称在获取到包装bean的时候，会变成<dubbo:service></dubbo:Service>  所以会执行到serviceBean的这个方法，在这里，对一些配置信息进行初始化
+     * 这里的afterPropertiesSet是在spring的refresh方法中完成bean的实例化(InvokeInitMethod)的时候，调用的；接口名称在获取到包装bean的时候，会变成<dubbo:service></dubbo:Service>  所以会执行到serviceBean的这个方法，在这里，对一些配置信息进行初始化
      */
     @Override
     @SuppressWarnings({"unchecked", "deprecation"})
@@ -268,6 +271,7 @@ public class ServiceBean<T> extends ServiceConfig<T> implements InitializingBean
 
         if ((getProtocols() == null || getProtocols().isEmpty())
                 && (getProvider() == null || getProvider().getProtocols() == null || getProvider().getProtocols().isEmpty())) {
+            //从spring容器中，获取到配置的所有的协议
             Map<String, ProtocolConfig> protocolConfigMap = applicationContext == null ? null : BeanFactoryUtils.beansOfTypeIncludingAncestors(applicationContext, ProtocolConfig.class, false, false);
             if (protocolConfigMap != null && protocolConfigMap.size() > 0) {
                 List<ProtocolConfig> protocolConfigs = new ArrayList<ProtocolConfig>();

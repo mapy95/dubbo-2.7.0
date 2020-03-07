@@ -118,8 +118,8 @@ public class Environment {
      *
      * 这里创建的是一个混合的配置项，分别从以下四个地方获取配置信息
      *  getSystemConfig是系统配置  -D指定的参数值
-     *  getAppExternalConfig
-     *  getExternalConfig  是从配置中心获取值
+     *  getAppExternalConfig  配置中心APP的配置项
+     *  getExternalConfig  是从配置中心全局配置项
      *  getPropertiesConfig 是从dubbo.properties配置文件中获取属性值
      *
      *  这里把所有的配置信息存到了一个linkedHashMap中，是有顺序的，在后面获取属性的时候，会按照这个linkedHashMap的顺序来取

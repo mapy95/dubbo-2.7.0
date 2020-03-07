@@ -286,6 +286,7 @@ public abstract class AbstractInterfaceConfig extends AbstractMethodConfig {
     protected List<URL> loadRegistries(boolean provider) {
         // check && override if necessary
         List<URL> registryList = new ArrayList<URL>();
+        //这里的registries是所有的 <dubbo:registry>
         if (registries != null && !registries.isEmpty()) {
             for (RegistryConfig config : registries) {
                 String address = config.getAddress();
@@ -305,6 +306,7 @@ public abstract class AbstractInterfaceConfig extends AbstractMethodConfig {
 
                     for (URL url : urls) {
                         url = url.addParameter(Constants.REGISTRY_KEY, url.getProtocol());
+                        //url原本是zookeeper://ip:port;经过下面这一行代码之后，就变成了 registry://ip:port
                         url = url.setProtocol(Constants.REGISTRY_PROTOCOL);
                         if ((provider && url.getParameter(Constants.REGISTER_KEY, true))
                                 || (!provider && url.getParameter(Constants.SUBSCRIBE_KEY, true))) {
