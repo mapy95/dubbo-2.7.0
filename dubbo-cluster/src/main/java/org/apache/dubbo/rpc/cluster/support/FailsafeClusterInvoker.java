@@ -42,6 +42,16 @@ public class FailsafeClusterInvoker<T> extends AbstractClusterInvoker<T> {
         super(directory);
     }
 
+    /**
+     * @param invocation
+     * @param invokers
+     * @param loadbalance
+     * @return
+     * @throws RpcException
+     *
+     * 失败安全调用：
+     *  也是只调用一次，调用失败之后，不会抛出异常，只会记录日志
+     */
     @Override
     public Result doInvoke(Invocation invocation, List<Invoker<T>> invokers, LoadBalance loadbalance) throws RpcException {
         try {

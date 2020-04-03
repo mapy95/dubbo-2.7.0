@@ -88,6 +88,16 @@ public class FailbackClusterInvoker<T> extends AbstractClusterInvoker<T> {
         }
     }
 
+    /**
+     * @param invocation
+     * @param invokers
+     * @param loadbalance
+     * @return
+     * @throws RpcException
+     *
+     * 失败自动恢复：
+     *  当调用失败的时候，会把失败的Invoker记录下来，并定时重试
+     */
     @Override
     protected Result doInvoke(Invocation invocation, List<Invoker<T>> invokers, LoadBalance loadbalance) throws RpcException {
         Invoker<T> invoker = null;

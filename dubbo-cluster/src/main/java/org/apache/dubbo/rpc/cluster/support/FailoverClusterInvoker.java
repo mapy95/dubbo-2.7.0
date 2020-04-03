@@ -50,6 +50,22 @@ public class FailoverClusterInvoker<T> extends AbstractClusterInvoker<T> {
         super(directory);
     }
 
+    /**
+     * @param invocation
+     * @param invokers
+     * @param loadbalance
+     * @return
+     * @throws RpcException
+     *
+     * 失败自动切换策略:
+     *  1.如果没有设置重试次数，默认是3次；如果有设置重试次数，就使用配置的次数;如果设置的重试次数小于0，就默认调用一次
+     *  2.入参中，invokers，表示所有的服务提供者对应的Invoker
+     *  3.如果设置的重试次数是N，就for循环N次
+     *  4.在循环中，根据负载均衡策略来选择其中的一个Invoker，invoked这个参数是已经用过的Invoker，在下次重试的时候，会排除这个list中的Invoker
+     *  5.在获取到要使用的Invoker之后，会调用invoke方法执行调用，如果调用成功，就return；否则，就继续遍历循环，直到重试完毕
+     *
+     *  其中关键步骤在第四部，选择Invoker
+     */
     @Override
     @SuppressWarnings({"unchecked", "rawtypes"})
     public Result doInvoke(Invocation invocation, final List<Invoker<T>> invokers, LoadBalance loadbalance) throws RpcException {

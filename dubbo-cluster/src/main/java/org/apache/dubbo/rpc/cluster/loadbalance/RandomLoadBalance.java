@@ -30,6 +30,17 @@ public class RandomLoadBalance extends AbstractLoadBalance {
 
     public static final String NAME = "random";
 
+    /**
+     * @param invokers
+     * @param url
+     * @param invocation
+     * @param <T>
+     * @return
+     *
+     * 随机策略：
+     *  如果每个服务提供者的权重都一样，那就是随机取一个Invoker
+     *  如果服务提供者的权重不一样，就随机生成一个数，看落在哪个区间
+     */
     @Override
     protected <T> Invoker<T> doSelect(List<Invoker<T>> invokers, URL url, Invocation invocation) {
         // Number of invokers
@@ -49,6 +60,7 @@ public class RandomLoadBalance extends AbstractLoadBalance {
             weights[i] = weight;
             // Sum
             totalWeight += weight;
+            //如果当前Invoker的权重和第一个不一样，那就，将sameWeight设置为false
             if (sameWeight && weight != firstWeight) {
                 sameWeight = false;
             }

@@ -53,6 +53,18 @@ public class ForkingClusterInvoker<T> extends AbstractClusterInvoker<T> {
         super(directory);
     }
 
+    /**
+     * @param invocation
+     * @param invokers
+     * @param loadbalance
+     * @return
+     * @throws RpcException
+     *
+     * 并行调用，只要有一个返回成功，就成功，可以设置最大并行调用数，如果不设置，默认是2
+     * 1.如果设置的并行调用数超过了invokers的长度。或者并行数小于0，那就设置并行数为invokers.size()
+     * 2.根据并行数，选择出要执行的Invoker，如果设置了2，那就从invokers中选择出来两个Invoker，并添加到selected
+     * 3.通过线程池，调用selected中的Invoker
+     */
     @Override
     @SuppressWarnings({"unchecked", "rawtypes"})
     public Result doInvoke(final Invocation invocation, List<Invoker<T>> invokers, LoadBalance loadbalance) throws RpcException {

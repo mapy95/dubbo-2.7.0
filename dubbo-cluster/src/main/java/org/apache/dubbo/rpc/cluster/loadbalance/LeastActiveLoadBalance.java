@@ -40,28 +40,35 @@ public class LeastActiveLoadBalance extends AbstractLoadBalance {
     protected <T> Invoker<T> doSelect(List<Invoker<T>> invokers, URL url, Invocation invocation) {
         // Number of invokers
         int length = invokers.size();
-        // The least active value of all invokers
+        // The least active value of all invokers 最小活跃值
         int leastActive = -1;
-        // The number of invokers having the same least active value (leastActive)
+        // The number of invokers having the same least active value (leastActive) 最小活跃值的服务提供者数量
         int leastCount = 0;
-        // The index of invokers having the same least active value (leastActive)
+        // The index of invokers having the same least active value (leastActive) 保存所有最小活跃值的服务提供者
         int[] leastIndexes = new int[length];
         // the weight of every invokers
         int[] weights = new int[length];
-        // The sum of the warmup weights of all the least active invokes
+        // The sum of the warmup weights of all the least active invokes  记录所有最小活跃值的总权重数
         int totalWeight = 0;
-        // The weight of the first least active invoke
+        // The weight of the first least active invoke  记录第一个最小活跃值的权重数
         int firstWeight = 0;
         // Every least active invoker has the same weight value?
         boolean sameWeight = true;
 
 
         // Filter out all the least active invokers
+        /**
+         * 这里的遍历，就是为了取到所有Invoker的活跃值，然后取到最小活跃值的权重信息，
+         * 1.如果活跃值最小的只有一个Invoker，那就返回这个Invoker就可以了
+         * 2.如果活跃值最小的有多个Invoker，需要判断最小活跃值的Invoker权重是否一样，
+         *   2.1 如果权重都一样，那就在最小活跃值的Invoker中随机选取一个
+         *   2.2 如果权重不一样，就根据权重信息，生成随机数，看随机数落在哪个区间
+         */
         for (int i = 0; i < length; i++) {
             Invoker<T> invoker = invokers.get(i);
-            // Get the active number of the invoke
-            int active = RpcStatus.getStatus(invoker.getUrl(), invocation.getMethodName()).getActive();
-            // Get the weight of the invoke configuration. The default value is 100.
+            // Get the active number of the invoke  获取当前Invoker的活跃值
+            int active = RpcStatus.getStatus(invoker.getUrl(), invocation.getMethodName()) .getActive();
+            // Get the weight of the invoke configuration. The default value is 100. 计算当前Invoker的权重
             int afterWarmup = getWeight(invoker, invocation);
             // save for later use
             weights[i] = afterWarmup;

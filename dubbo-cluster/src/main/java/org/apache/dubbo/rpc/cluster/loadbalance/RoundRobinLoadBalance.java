@@ -83,7 +83,17 @@ public class RoundRobinLoadBalance extends AbstractLoadBalance {
         }
         return null;
     }
-    
+
+    /**
+     * @param invokers
+     * @param url
+     * @param invocation
+     * @param <T>
+     * @return
+     *
+     * 轮询策略：
+     *
+     */
     @Override
     protected <T> Invoker<T> doSelect(List<Invoker<T>> invokers, URL url, Invocation invocation) {
         String key = invokers.get(0).getUrl().getServiceKey() + "." + invocation.getMethodName();

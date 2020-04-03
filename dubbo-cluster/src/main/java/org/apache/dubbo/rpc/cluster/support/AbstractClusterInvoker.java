@@ -141,6 +141,19 @@ public abstract class AbstractClusterInvoker<T> implements Invoker<T> {
         return invoker;
     }
 
+    /**
+     * @param loadbalance
+     * @param invocation
+     * @param invokers
+     * @param selected
+     * @return
+     * @throws RpcException
+     *
+     * 1.在选择invoker的时候，如果只有一个，那就返回当前这一个Invoker
+     * 2.如果有多个Invoker，就根据负载均衡策略，选取其中一个
+     * 3.如果选择的invoker在已选择过的list集合中，那就重新选择
+     * 4.如果重新选择的Invoker不为null，就return；否则：invokers.get((index + 1) % invokers.size()); 这行代码的意思是获取Invoker的下一个Invoker
+     */
     private Invoker<T> doSelect(LoadBalance loadbalance, Invocation invocation,
         List<Invoker<T>> invokers, List<Invoker<T>> selected) throws RpcException {
 
@@ -186,6 +199,9 @@ public abstract class AbstractClusterInvoker<T> implements Invoker<T> {
      * @param selected
      * @return
      * @throws RpcException
+     *
+     * 重新选择Invoker
+     * reselectInvokers这个list中保存的是从Invokers中剔除selected之后，剩下的Invoker
      */
     private Invoker<T> reselect(LoadBalance loadbalance, Invocation invocation,
         List<Invoker<T>> invokers, List<Invoker<T>> selected, boolean availablecheck) throws RpcException {
@@ -210,6 +226,7 @@ public abstract class AbstractClusterInvoker<T> implements Invoker<T> {
         }
 
         // Just pick an available invoker using loadbalance policy
+        //TODO mpy 这里的意思是：如果所有的Invoker都已经被调用过，并且调用失败了，那就从selected中随机选择一个调用吗？
         if (selected != null) {
             for (Invoker<T> invoker : selected) {
                 if ((invoker.isAvailable()) // available first
